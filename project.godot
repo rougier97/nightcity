@@ -1,0 +1,48 @@
+; HITMAN: NIGHTCITY 13+ — Godot 4.3 project
+; Landscape 2D mobile game (iOS / Android)
+
+config_version=5
+
+[application]
+
+config/name="HITMAN: NIGHTCITY 13+"
+config/description="A 2D neon-deco noir crime game for mobile."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+config/icon="res://icon.png"
+boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/show_image=false
+
+[autoload]
+
+Catalog="*res://scripts/autoload/catalog.gd"
+GameState="*res://scripts/autoload/game_state.gd"
+Audio="*res://scripts/autoload/audio_manager.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep_height"
+window/handheld/orientation=4
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+
+[debug]
+
+gdscript/warnings/inference_on_variant=0
+gdscript/warnings/untyped_declaration=0
+gdscript/warnings/integer_division=0
+gdscript/warnings/narrowing_conversion=0
+gdscript/warnings/unused_parameter=0
+gdscript/warnings/shadowed_variable_base_class=0
