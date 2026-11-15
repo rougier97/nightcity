@@ -34,6 +34,10 @@ var guards: Array = []      # dicts {node, min, max, speed, wait, dir, mode, ran
 var is_hidden := false
 var suspicion := 0.0
 var max_suspicion := 0.0
+var strikes := 0
+const MAX_STRIKES := 3
+var takedowns := 0
+var _takedown_target := {}
 var has_ledger := false
 var envelope_taken := false
 var frozen := false
@@ -98,7 +102,8 @@ func _intro() -> void:
 	frozen = true
 	await dialogue.play([
 		{"who": "", "text": "Second floor. Laundry steam in the stairwell, a radio playing somewhere. Three Castellano men between me and the safe."},
-		{"who": "", "text": "Stay out of their torchlight. Use cover — press HIDE next to crates, cabinets or curtains. If they see me for too long, it's over."},
+		{"who": "", "text": "Stay out of their torchlight. Press HIDE next to crates, cabinets or curtains. Get behind a guard — or ambush him from cover — and press TAKEDOWN."},
+		{"who": "", "text": "Every time they spot me is a strike. Three strikes and the job's blown."},
 	])
 	frozen = false
 
@@ -116,7 +121,7 @@ func _add_guard(x: float, mn: float, mx: float, spd: float, wait: float, gmode: 
 	p.walking = spd > 0.0
 	add_child(p)
 	guards.append({"node": p, "min": mn, "max": mx, "speed": spd, "wait": wait, "dir": 1, "mode": gmode,
-		"range": rng, "sus": 0.0, "pause": 0.0, "turn_t": 3.5})
+		"range": rng, "sus": 0.0, "pause": 0.0, "turn_t": 3.5, "down": false})
 
 func _objective() -> void:
 	if not envelope_taken and not has_ledger:
@@ -164,6 +169,10 @@ func _update_player(delta: float) -> void:
 func _update_guards(delta: float) -> void:
 	for g in guards:
 		var n: Pedestrian = g["node"]
+		if g["down"]:
+			n.walking = false
+			n.down = minf(1.0, n.down + delta * 3.0)
+			continue
 		if g["mode"] == "turner":
 			g["turn_t"] -= delta
 			if g["turn_t"] <= 0:
@@ -204,7 +213,7 @@ func _in_light(x: float) -> bool:
 	return level.flash > 0.4
 
 func guard_sees(g: Dictionary) -> bool:
-	if is_hidden:
+	if is_hidden or g["down"]:
 		return false
 	var n: Pedestrian = g["node"]
 	var dx := player.position.x - n.position.x
@@ -236,19 +245,40 @@ func _update_detection(delta: float) -> void:
 		suspicion = maxf(suspicion, g["sus"])
 	max_suspicion = maxf(max_suspicion, suspicion)
 	if suspicion >= 1.0:
-		_caught()
+		for g in guards:
+			if g["sus"] >= 1.0:
+				_strike(g)
+				break
+
+## A guard Adrian can take down: close, standing, and either facing away
+## or ambushed from cover.
+func takedown_target() -> Dictionary:
+	for g in guards:
+		if g["down"]:
+			continue
+		var n: Pedestrian = g["node"]
+		var dx := player.position.x - n.position.x
+		if absf(dx) > 74.0 or _wall_between(n.position.x, player.position.x):
+			continue
+		var behind := signf(dx) != float(g["dir"])
+		if behind or is_hidden:
+			return g
+	return {}
 
 func _update_prompts() -> void:
 	_near = ""
 	var x := player.position.x
-	if not envelope_taken and absf(x - ENVELOPE_X) < 60:
+	_takedown_target = takedown_target() if not frozen else {}
+	if not _takedown_target.is_empty():
+		_near = "takedown"
+	elif not envelope_taken and absf(x - ENVELOPE_X) < 60:
 		_near = "envelope"
 	elif not has_ledger and absf(x - SAFE_X) < 60:
 		_near = "safe"
 	elif absf(x - EXIT_X) < 70:
 		_near = "exit"
 	touch.interact_enabled = _near != "" and not frozen
-	touch.interact_label = {"envelope": "TAKE", "safe": "CRACK", "exit": "ESCAPE", "": "ACTION"}[_near]
+	touch.interact_label = {"envelope": "TAKE", "safe": "CRACK", "exit": "ESCAPE", "takedown": "TAKEDOWN", "": "ACTION"}[_near]
 	var c := _cover_near()
 	touch.hide_label = "LEAVE" if is_hidden else "HIDE"
 	if touch._vis.has("hide"):
@@ -286,6 +316,8 @@ func _set_hidden(v: bool) -> void:
 
 func _interact(what: String) -> void:
 	match what:
+		"takedown":
+			_takedown(_takedown_target)
 		"envelope":
 			envelope_taken = true
 			GameState.add_cash(250)
@@ -305,6 +337,60 @@ func _interact(what: String) -> void:
 			else:
 				_complete()
 	_objective()
+
+func _takedown(g: Dictionary) -> void:
+	if g.is_empty() or g["down"]:
+		return
+	var n: Pedestrian = g["node"]
+	if is_hidden:
+		_set_hidden(false)
+	player.facing = 1 if n.position.x > player.position.x else -1
+	g["down"] = true
+	g["sus"] = 0.0
+	n.torch = false
+	n.walking = false
+	takedowns += 1
+	Audio.sfx("takedown")
+	UI.toast(_ui, "TAKEDOWN  ·  %d guard%s down" % [takedowns, "" if takedowns == 1 else "s"], NC.NEON_RED, 1.2)
+
+## Spotted: lose a strike. Three strikes and the contract fails.
+func _strike(g: Dictionary) -> void:
+	strikes += 1
+	for other in guards:
+		other["sus"] = 0.0
+	if strikes >= MAX_STRIKES:
+		_caught()
+		return
+	Audio.sfx("alert", -4.0)
+	g["pause"] = 1.6
+	g["dir"] = -g["dir"]
+	frozen = true
+	player.walking = false
+	var banner := UI.label("SPOTTED  ·  STRIKE %d OF %d" % [strikes, MAX_STRIKES], 46, NC.NEON_RED, "deco")
+	banner.add_theme_color_override("font_outline_color", Color.BLACK)
+	banner.add_theme_constant_override("outline_size", 10)
+	banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	banner.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_ui.add_child(banner)
+	var sub := UI.label("Get out of sight — or take him down from behind.", 22, Color.WHITE)
+	sub.add_theme_color_override("font_outline_color", Color.BLACK)
+	sub.add_theme_constant_override("outline_size", 6)
+	sub.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sub.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sub.offset_top = 90
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_ui.add_child(sub)
+	await get_tree().create_timer(1.3).timeout
+	if not is_inside_tree():
+		return
+	banner.queue_free()
+	sub.queue_free()
+	if not ended:
+		frozen = false
 
 func safe_done(success: bool) -> void:
 	frozen = false
@@ -329,7 +415,7 @@ func _caught() -> void:
 	if GameState.has_item("ledger"):
 		GameState.remove_item("ledger")
 	var v := _panel("SPOTTED", NC.NEON_RED)
-	var t := UI.label("A Castellano guard raised the alarm. Somebody called the NCPD.\nPolice heat +1. The ledger stays where it is — for now.", 22)
+	var t := UI.label("Three strikes. The Castellanos raised the alarm and somebody called the NCPD.\nPolice heat +1. The ledger stays where it is — for now.", 22)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	var h := HBoxContainer.new()
@@ -353,9 +439,15 @@ func _complete() -> void:
 	Audio.sfx("success")
 	Audio.play_music("velvet", 3.0)
 	var v := _panel("CONTRACT COMPLETE", NC.GOLD)
-	var rating := "GHOST" if max_suspicion < 0.35 else ("PROFESSIONAL" if max_suspicion < 0.75 else "CLOSE CALL")
-	var t := UI.label("THE LEDGER\n\nTime  %d:%02d      Stealth rating  %s\nCash found  $%d\n\nDeliver the ledger to Vincent Moretti at his restaurant for $3,000." % [
-		int(_time) / 60, int(_time) % 60, rating, 250 if envelope_taken else 0], 22)
+	var rating := "CLOSE CALL"
+	if strikes == 0 and takedowns == 0 and max_suspicion < 0.35:
+		rating = "GHOST"
+	elif strikes == 0 and takedowns > 0:
+		rating = "SILENT ASSASSIN"
+	elif strikes <= 1:
+		rating = "PROFESSIONAL"
+	var t := UI.label("THE LEDGER\n\nTime  %d:%02d      Rating  %s\nStrikes  %d / %d      Takedowns  %d      Cash found  $%d\n\nDeliver the ledger to Vincent Moretti at his restaurant for $3,000." % [
+		int(_time) / 60, int(_time) % 60, rating, strikes, MAX_STRIKES, takedowns, 250 if envelope_taken else 0], 22)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	var c := UI.btn("CONTINUE", func(): main.goto("district", {"x": 3180.0}), Vector2(260, 64))
@@ -548,6 +640,8 @@ class Foreground extends Node2D:
 		# guards: vision cones + suspicion
 		for g in mission.guards:
 			var n: Pedestrian = g["node"]
+			if g["down"]:
+				continue
 			var d: int = g["dir"]
 			var eye := Vector2(n.position.x + d * 34, F - 132)
 			var sus: float = g["sus"]
@@ -569,7 +663,7 @@ class Foreground extends Node2D:
 class Meter extends Control:
 	var mission
 	func _init() -> void:
-		custom_minimum_size = Vector2(280, 30)
+		custom_minimum_size = Vector2(440, 30)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 	func _process(_d: float) -> void:
 		queue_redraw()
@@ -581,6 +675,13 @@ class Meter extends Control:
 		draw_rect(Rect2(0, 0, 280 * s, 10), col)
 		draw_rect(Rect2(0, 0, 280, 10), NC.a(NC.GOLD, 0.6), false, 1)
 		draw_string(NC.font("title"), Vector2(0, 32), label, HORIZONTAL_ALIGNMENT_CENTER, 280, 20, NC.NEON_CYAN if mission.is_hidden else col)
+		draw_string(NC.font("title"), Vector2(296, 14), "STRIKES", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, NC.a(NC.PALE_GOLD, 0.7))
+		for i in mission.MAX_STRIKES:
+			var c := Vector2(366 + i * 22, 8)
+			var on: bool = i < mission.strikes
+			var xc := NC.NEON_RED if on else NC.a(NC.PALE_GOLD, 0.35)
+			draw_line(c + Vector2(-6, -6), c + Vector2(6, 6), xc, 3.0 if on else 1.5)
+			draw_line(c + Vector2(6, -6), c + Vector2(-6, 6), xc, 3.0 if on else 1.5)
 
 ## Safe-cracking mini-game: tap CRACK when the needle is inside the gold zone, three times.
 class SafeCrack extends Control:

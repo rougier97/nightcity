@@ -13,6 +13,7 @@ extends Node2D
 @export var wrap_max := 3800.0
 @export var torch := false
 var dir := 1
+var down := 0.0          # 0 standing → 1 lying on the floor (takedown)
 var walking := true
 var _phase := randf() * TAU
 
@@ -26,9 +27,13 @@ func _process(delta: float) -> void:
 			elif position.x < wrap_min:
 				position.x = wrap_max
 	scale.x = absf(scale.x) * dir
+	if down > 0.0:
+		modulate = Color.WHITE.lerp(Color(1.25, 1.1, 1.2, 1.0), down)
 	queue_redraw()
 
 func _draw() -> void:
+	if down > 0.0:
+		draw_set_transform(Vector2(-20.0 * down, -26.0 * down), -PI * 0.5 * down, Vector2.ONE)
 	var w := 1.0 if walking else 0.0
 	var s := sin(_phase) * w
 	var c := coat_color

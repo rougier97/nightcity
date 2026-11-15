@@ -98,7 +98,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":4796496,"index.wasm":35376909},"focusCanvas":true,"gdextensionLibs":[],"serviceWorker":"index.service.worker.js"};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":4811696,"index.wasm":35376909},"focusCanvas":true,"gdextensionLibs":[],"serviceWorker":"index.service.worker.js"};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
@@ -195,6 +195,21 @@ const engine = new Engine(GODOT_CONFIG);
 	}
 }());
 		</script>
-	</body>
+	<script>
+(function(){
+  if (!('caches' in window) || !('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function(){ setTimeout(async function(){
+    try {
+      if (!navigator.onLine) return;
+      const t = await (await fetch('index.service.worker.js', {cache: 'no-store'})).text();
+      const ver = /const CACHE_VERSION = '([^']*)'/.exec(t), pre = /const CACHE_PREFIX = '([^']*)'/.exec(t), files = /const CACHED_FILES = (\[[^\]]*\])/.exec(t);
+      if (!ver || !pre || !files) return;
+      const c = await caches.open(pre[1] + ver[1]);
+      for (const f of JSON.parse(files[1])) { if (!(await c.match(f))) { try { await c.add(f); } catch (e) {} } }
+    } catch (e) {}
+  }, 6000); });
+})();
+</script>
+</body>
 </html>
 

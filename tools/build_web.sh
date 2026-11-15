@@ -12,3 +12,25 @@ open(p,'w').write(s)
 PY
 touch .nojekyll
 echo built
+# self-heal: if another app on the same origin wipes our offline cache, refill it next time we're online
+python3 - <<'PY'
+p='index.html'; s=open(p).read()
+js = r"""<script>
+(function(){
+  if (!('caches' in window) || !('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function(){ setTimeout(async function(){
+    try {
+      if (!navigator.onLine) return;
+      const t = await (await fetch('index.service.worker.js', {cache: 'no-store'})).text();
+      const ver = /const CACHE_VERSION = '([^']*)'/.exec(t), pre = /const CACHE_PREFIX = '([^']*)'/.exec(t), files = /const CACHED_FILES = (\[[^\]]*\])/.exec(t);
+      if (!ver || !pre || !files) return;
+      const c = await caches.open(pre[1] + ver[1]);
+      for (const f of JSON.parse(files[1])) { if (!(await c.match(f))) { try { await c.add(f); } catch (e) {} } }
+    } catch (e) {}
+  }, 6000); });
+})();
+</script>"""
+s = s.replace('</body>', js + '\n</body>', 1)
+open(p,'w').write(s)
+PY
+echo healed

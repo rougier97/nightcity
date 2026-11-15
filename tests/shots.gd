@@ -61,5 +61,16 @@ func run(m) -> void:
 		main.goto("intro", {}, 0.0); await _w(1.0); await snap("20_intro_skip")
 		main.goto("district", {"x": 2410.0}, 0.0); await _w(1.0)
 		main.current._interact("calloway"); await _w(3.5); await snap("21_dialogue_choice")
+	if only == "strike":
+		main.goto("mission", {}, 0.0); await _w(0.8)
+		var ms = main.current
+		ms.dialogue.visible = false; ms.frozen = false
+		var g = ms.guards[0]; g["pause"] = 99.0; g["dir"] = 1; g["node"].position.x = 300
+		ms.player.position.x = 450; await _w(1.6); await snap("22_strike")
+		await _w(1.6)
+		g["dir"] = 1; ms.player.position.x = 250; await _w(0.3); await snap("23_takedown_prompt")
+		ms._interact("takedown"); ms.player.position.x = 120; await _w(1.0)
+		print("DBG down=", g["node"].down, " pos=", g["node"].position, " mod=", g["node"].modulate, " vis=", g["node"].visible, " gdown=", g["down"])
+		await snap("24_guard_down")
 	print("SHOTS DONE")
 	get_tree().quit()

@@ -148,8 +148,39 @@ func run(m) -> void:
 	ms.player.position.x = g0["node"].position.x + 140
 	var heat0 := GameState.heat
 	await _w(2.5)
-	check(ms.ended, "standing in a guard's sight gets Adrian spotted")
-	check(GameState.heat == heat0 + 1, "being spotted raises police heat")
+	check(ms.strikes == 1 and not ms.ended, "first time spotted = strike 1, mission continues")
+	await _w(1.6)
+	check(not ms.frozen, "play resumes after the strike banner")
+	# takedown from behind
+	var g1: Dictionary = ms.guards[1]
+	g1["pause"] = 99.0
+	g1["dir"] = 1
+	g1["node"].position.x = 1200.0
+	ms.player.position.x = 1150.0
+	await _frames(3)
+	check(ms._near == "takedown", "TAKEDOWN offered when behind a guard")
+	ms.player.position.x = 1250.0
+	await _frames(3)
+	check(ms._near != "takedown", "no takedown from in front of a guard")
+	ms.player.position.x = 1150.0
+	await _frames(3)
+	ms._interact("takedown")
+	await _w(0.5)
+	check(g1["down"] and ms.takedowns == 1, "takedown puts the guard down")
+	ms.player.position.x = 1300.0
+	g1["dir"] = 1
+	check(not ms.guard_sees(g1), "a downed guard can't see Adrian")
+	# two more strikes fail the mission
+	for k in 2:
+		g0 = ms.guards[0]
+		g0["sus"] = 1.0
+		ms.player.position.x = g0["node"].position.x + 100
+		g0["dir"] = 1
+		g0["pause"] = 99.0
+		await _w(0.3)
+		await _w(1.5)
+	check(ms.strikes == 3 and ms.ended, "third strike fails the contract")
+	check(GameState.heat == heat0 + 1, "failing the contract raises police heat")
 	main.goto("mission", {}, 0.0)
 	check(await wait_screen("mission"), "retry reloads the mission")
 	ms = screen()

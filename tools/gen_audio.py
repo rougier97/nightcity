@@ -479,6 +479,15 @@ def sfx_hangup():
     b = tone(480, 0.25, 0.5, 0.08); s[int(0.3 * SR):int(0.3 * SR) + len(b)] += b
     return s
 
+def sfx_takedown():
+    n = int(0.9 * SR); t = np.arange(n) / SR
+    punch = onepole_fft(rng.standard_normal(n), 260, 2) * np.exp(-t * 22) * 3.0
+    cloth = bandpass_fft(rng.standard_normal(n), 900, 4000) * np.exp(-t * 30) * 0.4
+    fall = np.zeros(n); st = int(0.38 * SR)
+    m = n - st; tt = np.arange(m) / SR
+    fall[st:] = onepole_fft(rng.standard_normal(m), 180, 2) * np.exp(-tt * 14) * 2.2
+    return punch + cloth + fall
+
 def sfx_vinyl():
     return compose_ballad("x", piano_only=True, melody_on=False)  # unused
 
@@ -516,4 +525,4 @@ if __name__ == "__main__":
         write("sfx_door", sfx_door()); write("sfx_step", sfx_step())
         write("sfx_safe_tick", sfx_safe_tick()); write("sfx_safe_open", sfx_safe_open())
         write("sfx_alert", sfx_alert()); write("sfx_success", sfx_success())
-        write("sfx_blip", sfx_blip()); write("sfx_car", sfx_car()); write("sfx_hangup", sfx_hangup())
+        write("sfx_blip", sfx_blip()); write("sfx_car", sfx_car()); write("sfx_hangup", sfx_hangup()); write("sfx_takedown", sfx_takedown())

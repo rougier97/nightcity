@@ -2,14 +2,6 @@
 
 A 2D neon-deco noir crime game for iPhone and Android, built in **Godot 4.3** (GDScript), landscape, touch-first.
 
-## ▶ Play in your browser
-**https://rougier97.github.io/nightcity/**
-
-- Turn your phone sideways (landscape).
-- **Play with no Wi-Fi:** open the link once while online and let it load. On iPhone tap **Share → Add to Home Screen** (Android: menu → **Install app**). The whole game is stored on the phone, so the home-screen icon works offline from then on.
-- Saves are kept on the device (per browser).
-- Rebuild the web version after changes: `bash tools/build_web.sh`, then copy `build/web/*` into `docs/`.
-
 ## Engine decision
 
 | | Unity 2D | Godot 4.3 |
@@ -50,7 +42,7 @@ Android: install Android Studio (SDK) + JDK 17, set paths in **Editor Settings �
 | 4 | Adrian Cross introduction + phone call from Vincent Moretti (with a dialogue choice) | Done |
 | 5 | Interactive city map, 6 districts, 1 unlocked | Done |
 | 6 | First district — The Velvet Quarter (walkable street, 6 doors) | Done |
-| 7 | First mission — *The Ledger* (stealth: cover, guard vision, detection, safe-cracking, escape) | Done, tested |
+| 7 | First mission — *The Ledger* (stealth: cover, guard vision, detection, 3-strike system, takedowns, safe-cracking, escape) | Done, tested |
 | 8 | Cash rewards ($250 found + $3,000 payout on delivery) | Done, tested |
 | 9 | Inventory (bag) | Done |
 | 10 | Wardrobe: preview / try on / buy / wear / remove / 3 outfit presets | Done, tested |
@@ -68,10 +60,10 @@ An original placeholder score, synthesised from scratch by `tools/gen_audio.py` 
 ## Testing
 
 ```
-godot --path . -- --test=logic     # 73 functional checks (economy, wardrobe, save/load, stealth, mission, payout, safehouse, touch, audio buses)
+godot --path . -- --test=logic     # 79 functional checks (economy, wardrobe, save/load, stealth, mission, payout, safehouse, touch, audio buses)
 godot --path . -- --test=shots     # screenshot tour of every screen -> /tmp/shots
 ```
-Last run: **73 passed, 0 failed**.
+Last run: **79 passed, 0 failed**.
 
 ## Not done yet (honest list)
 - Not yet run on a physical iPhone/Android — needs the export step above on your Mac.

@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1794765716|5364298';
+const CACHE_VERSION = '1794766292|5311436';
 /** @type {string} */
 const CACHE_PREFIX = 'HITMAN: NIGHTCIT-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
